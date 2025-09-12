@@ -102,8 +102,7 @@ public class RAGApi implements UceApi {
         // send full chat state as JSON only
         var contentType = ctx.header("Accept");
         if (contentType != null && contentType.equals("application/json")) {
-            RAGChatStateDTO returnState = RAGChatStateDTO.fromRAGChatState(chatState);
-            ctx.json(returnState);
+            ctx.json(RAGChatStateDTO.toHashMap(chatState));
             return;
         }
 
@@ -137,11 +136,11 @@ public class RAGApi implements UceApi {
 
             // Stream the result?
             // NOTE this will start a new thread in the background and return the chat id immediately
-            var stream = requestBody.getOrDefault("stream", null) != null ? ((Boolean)requestBody.get("stream")).booleanValue() : false;
+            var stream = requestBody.getOrDefault("stream", null) != null ? ((Boolean) requestBody.get("stream")).booleanValue() : false;
 
             // A specific document id can be provided to only work with this document as LLM context
             // TODO check datatype again here
-            var documentId = requestBody.getOrDefault("documentId", null) != null ? ((Double)requestBody.get("documentId")).longValue() : null;
+            var documentId = requestBody.getOrDefault("documentId", null) != null ? ((Double) requestBody.get("documentId")).longValue() : null;
 
             // TODO: This also needs some form of periodic cleanup. I could have used websockets, but at the time,
             // noone really knew if this feature is even needed or applicable. Websocket introduced more complexity to client
@@ -172,10 +171,10 @@ public class RAGApi implements UceApi {
 //                contextNeeded = 1;
 //            }
 //            else {
-                contextNeeded = ExceptionUtils.tryCatchLog(
-                        () -> ragService.postRAGContextNeeded(userMessage),
-                        (ex) -> logger.error("Error getting the ContextNeeded info from the rag service.", ex));
-                if (contextNeeded == null) contextNeeded = 1;
+            contextNeeded = ExceptionUtils.tryCatchLog(
+                    () -> ragService.postRAGContextNeeded(userMessage),
+                    (ex) -> logger.error("Error getting the ContextNeeded info from the rag service.", ex));
+            if (contextNeeded == null) contextNeeded = 1;
 //            }
 
             // Check if the user wants to work with just one document or with multiple documents,
@@ -224,8 +223,7 @@ public class RAGApi implements UceApi {
                             } else {
                                 System.out.println("No document found with title: " + documentTitle);
                             }
-                        }
-                        catch (Exception ex) {
+                        } catch (Exception ex) {
                             ex.printStackTrace();
                         }
                         if (documentId == null) {
@@ -283,23 +281,18 @@ public class RAGApi implements UceApi {
                     }
 
                     StringBuilder contextText = new StringBuilder();
-                    if (!docImages.isEmpty()) {
-                        // TODO this should be further finetuned...
-                        contextText.append("Provide your answer based on the given image").append(docImages.size()>1?"s":"").append(".\n\n");
-                    }
-                    else {
-                        contextText.append("Provide your answer based on the contents of the following document :\n\n");
-                        contextText.append("<document>").append("\n");
-                        contextText.append("ID: ").append(doc.getId()).append("\n");
-                        contextText.append("Title: ").append(doc.getDocumentTitle()).append("\n");
-                        contextText.append("Language: ").append(doc.getLanguage()).append("\n");
-                        contextText.append("Images: ").append(docImages.size()).append(" images provided.").append("\n");
-                        contextText.append("Content:\n").append(doc.getFullText()).append("\n");
-                        contextText.append("</document>").append("\n\n");
-                    }
+
+                    contextText.append("Provide your answer based on the contents of the following document :\n\n");
+                    contextText.append("<document>").append("\n");
+                    contextText.append("ID: ").append(doc.getId()).append("\n");
+                    contextText.append("Title: ").append(doc.getDocumentTitle()).append("\n");
+                    contextText.append("Language: ").append(doc.getLanguage()).append("\n");
+                    contextText.append("Images: ").append(docImages.size()).append(" images provided.").append("\n");
+                    contextText.append("Content:\n").append(doc.getFullText()).append("\n");
+                    contextText.append("</document>").append("\n\n");
+
                     prompt = prompt.replace("[NO CONTEXT - USE CONTEXT FROM PREVIOUS QUESTION IF EXIST]", contextText);
-                }
-                else {
+                } else {
                     nearestDocumentChunkEmbeddings = ragService.getClosestDocumentChunkEmbeddings(userMessage, amountOfDocs, -1);
                     // foreach fetched document embedding, we also fetch the actual documents so the chat can show them
                     foundDocuments = db.getManyDocumentsByIds(nearestDocumentChunkEmbeddings.stream().map(d -> Math.toIntExact(d.getDocument_id())).toList(), hibernateInit);
@@ -423,8 +416,7 @@ public class RAGApi implements UceApi {
             if (requestBody.has("systemMessage")) {
                 systemMessage = requestBody.getString("systemMessage");
             }
-        }
-        else {
+        } else {
             ragModelId = ExceptionUtils.tryCatchLog(() -> ctx.queryParam("model"),
                     (ex) -> logger.error("Error: the chatting requires a 'model' query parameter. ", ex));
 
